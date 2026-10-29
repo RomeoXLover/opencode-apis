@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Any, AsyncGenerator, Dict, Optional
+from typing import Any, AsyncGenerator, Dict, Optional, List
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,8 +16,8 @@ from config import settings
 limiter = Limiter(key_func=get_remote_address, default_limits=[settings.RATE_LIMIT_PER_MINUTE])
 app = FastAPI(
     title="OpenCode APIs Gateway",
-    description="High-performance OpenAI-compatible API gateway for open-weight coding models on VPS.",
-    version="1.0.0"
+    description="High-performance hybrid OpenAI-compatible API gateway supporting self-hosted open models and upstream cloud models (Claude 3.5 Sonnet, GPT-4o).",
+    version="1.1.0"
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -54,7 +54,7 @@ def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = Depends
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint to test VPS API status and backend connectivity."""
+    """Health check endpoint to test VPS API status, local engine, and upstream routing."""
     backend_status = "unknown"
     async with httpx.AsyncClient(timeout=3.0) as client:
         try:
@@ -73,40 +73,63 @@ async def health_check():
         "backend_type": settings.BACKEND_TYPE,
         "backend_url": settings.BACKEND_URL,
         "backend_connectivity": backend_status,
+        "upstream_router_enabled": settings.ENABLE_UPSTREAM_ROUTER,
+        "upstream_configured": bool(settings.UPSTREAM_API_KEY),
         "timestamp": int(time.time())
     }
 
 @app.get("/v1/models")
 async def list_models(auth: bool = Depends(verify_api_key)):
-    """Lists all available open-source models loaded on this VPS."""
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    """Lists all available models: both local open models and upstream flagship models."""
+    models: List[Dict[str, Any]] = []
+
+    # 1. Fetch local VPS models from Ollama / vLLM
+    async with httpx.AsyncClient(timeout=5.0) as client:
         try:
             if settings.BACKEND_TYPE == "ollama":
                 res = await client.get(f"{settings.BACKEND_URL}/api/tags")
-                if res.status_code != 200:
-                    raise HTTPException(status_code=res.status_code, detail="Failed to fetch models from backend")
-                data = res.json()
-                models = [
-                    {
-                        "id": m.get("name"),
-                        "object": "model",
-                        "created": int(time.time()),
-                        "owned_by": "opencode-vps",
-                        "size_bytes": m.get("size", 0),
-                        "details": m.get("details", {})
-                    }
-                    for m in data.get("models", [])
-                ]
-                return {"object": "list", "data": models}
+                if res.status_code == 200:
+                    data = res.json()
+                    for m in data.get("models", []):
+                        models.append({
+                            "id": m.get("name"),
+                            "object": "model",
+                            "created": int(time.time()),
+                            "owned_by": "local-vps",
+                            "type": "open-weights",
+                            "size_bytes": m.get("size", 0),
+                            "details": m.get("details", {})
+                        })
             else:
-                # Forward to standard OpenAI /v1/models if vLLM or llama.cpp server
                 res = await client.get(f"{settings.BACKEND_URL}/v1/models")
-                return JSONResponse(status_code=res.status_code, content=res.json())
-        except httpx.RequestError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail={"error": {"message": f"Backend inference engine unreachable: {str(exc)}", "type": "backend_error"}}
-            )
+                if res.status_code == 200:
+                    models.extend(res.json().get("data", []))
+        except Exception:
+            # Continue even if local backend is busy
+            pass
+
+    # 2. Add upstream flagship models (Claude 3.5 Sonnet, GPT-4o, etc.)
+    if settings.ENABLE_UPSTREAM_ROUTER:
+        upstream_flagships = [
+            {"id": "claude-3-5-sonnet", "name": "Claude 3.5 Sonnet (Anthropic)", "owned_by": "anthropic"},
+            {"id": "claude-3-opus", "name": "Claude 3 Opus (Anthropic)", "owned_by": "anthropic"},
+            {"id": "gpt-4o", "name": "GPT-4o (OpenAI)", "owned_by": "openai"},
+            {"id": "gpt-4o-mini", "name": "GPT-4o Mini (OpenAI)", "owned_by": "openai"},
+            {"id": "o1-preview", "name": "OpenAI o1 Preview", "owned_by": "openai"},
+            {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro (Google)", "owned_by": "google"},
+            {"id": "deepseek-r1", "name": "DeepSeek R1 Reasoning", "owned_by": "deepseek"},
+        ]
+        for f in upstream_flagships:
+            models.append({
+                "id": f["id"],
+                "object": "model",
+                "created": int(time.time()),
+                "owned_by": f["owned_by"],
+                "type": "upstream-cloud",
+                "status": "ready" if settings.UPSTREAM_API_KEY else "requires_UPSTREAM_API_KEY"
+            })
+
+    return {"object": "list", "data": models}
 
 @app.post("/v1/chat/completions")
 @limiter.limit(settings.RATE_LIMIT_PER_MINUTE)
@@ -116,22 +139,80 @@ async def chat_completions(
 ):
     """
     OpenAI-compliant chat completions endpoint.
-    Supports both non-streaming JSON responses and streaming Server-Sent Events (SSE).
+    Routes open-weight models to local VPS and closed models (Claude 3.5 Sonnet, GPT-4o) upstream.
     """
     try:
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body payload.")
 
+    model_req = body.get("model", settings.DEFAULT_MODEL)
     is_stream = body.get("stream", False)
-    
-    # Target URL based on backend
-    if settings.BACKEND_TYPE == "ollama":
-        target_url = f"{settings.BACKEND_URL}/v1/chat/completions"
-    else:
-        target_url = f"{settings.BACKEND_URL}/v1/chat/completions"
+
+    # Check if this model is an upstream flagship model (Claude, GPT-4o, Gemini)
+    is_upstream = (
+        model_req in settings.UPSTREAM_MODEL_ALIASES
+        or model_req.startswith("anthropic/")
+        or model_req.startswith("openai/")
+        or model_req.startswith("google/")
+    )
 
     client = httpx.AsyncClient(timeout=300.0)
+
+    # CASE A: Upstream Model Routing (Claude 3.5 Sonnet, GPT-4o, etc.)
+    if is_upstream:
+        if not settings.UPSTREAM_API_KEY:
+            await client.aclose()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": {
+                        "message": (
+                            f"Model '{model_req}' is a proprietary cloud model. "
+                            "To enable it, set 'UPSTREAM_API_KEY=your_key' (e.g. from OpenRouter.ai or Anthropic) in your .env file. "
+                            "Alternatively, use a free self-hosted model like 'qwen2.5-coder:7b' or 'deepseek-coder:6.7b'."
+                        ),
+                        "type": "configuration_error",
+                        "model": model_req
+                    }
+                }
+            )
+
+        # Map alias to target provider model ID
+        target_model = settings.UPSTREAM_MODEL_ALIASES.get(model_req, model_req)
+        forward_body = dict(body)
+        forward_body["model"] = target_model
+
+        target_url = f"{settings.UPSTREAM_BASE_URL.rstrip('/')}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {settings.UPSTREAM_API_KEY}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/RomeoXLover/opencode-apis",
+            "X-Title": "OpenCode APIs Gateway"
+        }
+
+        if not is_stream:
+            try:
+                resp = await client.post(target_url, json=forward_body, headers=headers)
+                await client.aclose()
+                return JSONResponse(status_code=resp.status_code, content=resp.json())
+            except Exception as exc:
+                await client.aclose()
+                raise HTTPException(status_code=502, detail=f"Upstream provider error: {str(exc)}")
+
+        # Streaming upstream response
+        async def sse_upstream_stream() -> AsyncGenerator[bytes, None]:
+            try:
+                async with client.stream("POST", target_url, json=forward_body, headers=headers) as response:
+                    async for chunk in response.aiter_bytes():
+                        yield chunk
+            finally:
+                await client.aclose()
+
+        return StreamingResponse(sse_upstream_stream(), media_type="text/event-stream")
+
+    # CASE B: Local VPS Engine Routing (Qwen 2.5 Coder, DeepSeek Coder, etc.)
+    target_url = f"{settings.BACKEND_URL}/v1/chat/completions"
 
     if not is_stream:
         try:
@@ -142,11 +223,10 @@ async def chat_completions(
             await client.aclose()
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail={"error": {"message": f"Failed communicating with inference backend: {str(exc)}", "type": "backend_error"}}
+                detail={"error": {"message": f"Local inference engine error: {str(exc)}", "type": "backend_error"}}
             )
 
-    # Streaming generator
-    async def sse_stream() -> AsyncGenerator[bytes, None]:
+    async def sse_local_stream() -> AsyncGenerator[bytes, None]:
         try:
             async with client.stream("POST", target_url, json=body) as response:
                 async for chunk in response.aiter_bytes():
@@ -154,7 +234,7 @@ async def chat_completions(
         finally:
             await client.aclose()
 
-    return StreamingResponse(sse_stream(), media_type="text/event-stream")
+    return StreamingResponse(sse_local_stream(), media_type="text/event-stream")
 
 @app.post("/v1/completions")
 @limiter.limit(settings.RATE_LIMIT_PER_MINUTE)

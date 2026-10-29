@@ -5,7 +5,7 @@
 [![API Standard](https://img.shields.io/badge/API-OpenAI%20Compatible-blue)](https://platform.openai.com/docs/api-reference)
 [![Engines](https://img.shields.io/badge/Engines-Ollama%20%7C%20llama.cpp%20%7C%20vLLM-purple)](#-inference-engines)
 
-Turn any Linux VPS (CPU or GPU) into a private, high-performance, **OpenAI-compatible AI coding API**. Host free, open-weight coding models (Qwen 2.5 Coder, DeepSeek Coder, CodeLlama, StarCoder2, Llama 3.2) and access them remotely using your **VPS IP address** or a **custom domain** with automated SSL.
+Turn any Linux VPS (CPU or GPU) into a private, high-performance, **OpenAI-compatible AI coding API**. Host free, open-weight coding models (Qwen 2.5 Coder, DeepSeek Coder, CodeLlama, StarCoder2, Llama 3.2) locally, or use the **Hybrid Upstream Router** to route to proprietary frontier models like **Claude 3.5 Sonnet** and **GPT-4o** through a single unified endpoint using your **VPS IP address** or a **custom domain** with automated SSL.
 
 ---
 
@@ -14,9 +14,10 @@ Turn any Linux VPS (CPU or GPU) into a private, high-performance, **OpenAI-compa
 ```mermaid
 flowchart LR
     Client["Client / IDE / Script\n(VS Code, Cursor, cURL, Python)"] -->|HTTP / HTTPS| Proxy["Nginx Reverse Proxy\n(Port 80 / 443)\n• SSL (Let's Encrypt)\n• SSE Streaming\n• VPS IP / Domain"]
-    Proxy -->|Local Fast Proxy| Gateway["OpenCode FastAPI Gateway\n(Port 8000)\n• API Key Auth\n• Rate Limiting\n• Model Routing"]
-    Gateway -->|Local Inference| Engine["Backend Inference Engine\n• Ollama (Default)\n• llama.cpp (GGUF)\n• vLLM (CUDA GPU)"]
-    Engine --> Weights[("Open-Source Models\n• Qwen 2.5 Coder\n• DeepSeek Coder\n• Llama 3.2")]
+    Proxy -->|Local Fast Proxy| Gateway["OpenCode FastAPI Gateway\n(Port 8000)\n• API Key Auth\n• Rate Limiting\n• Smart Model Router"]
+    Gateway -->|Local Open Models| Engine["Backend Inference Engine\n• Ollama (Default)\n• llama.cpp (GGUF)\n• vLLM (CUDA GPU)"]
+    Gateway -.->|Upstream Cloud Router| Cloud["Proprietary Cloud APIs\n• Claude 3.5 Sonnet\n• GPT-4o / o1-preview\n• Gemini 1.5 Pro"]
+    Engine --> Weights[("Free Local Models\n• Qwen 2.5 Coder\n• DeepSeek Coder\n• Llama 3.2")]
 ```
 
 ---
@@ -166,6 +167,20 @@ curl -N http://YOUR_VPS_IP/v1/chat/completions \
     "model": "qwen2.5-coder:7b",
     "messages": [
       {"role": "user", "content": "Write a Python script that calculates prime numbers."}
+    ],
+    "stream": true
+  }'
+```
+
+### Querying Claude 3.5 Sonnet via Hybrid Router
+If you have configured `UPSTREAM_API_KEY` in `.env`, you can query Claude 3.5 Sonnet or GPT-4o through your VPS IP just like a local model:
+```bash
+curl -N http://YOUR_VPS_IP/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-3-5-sonnet",
+    "messages": [
+      {"role": "user", "content": "Write an optimized WebAssembly Rust module for matrix multiplication."}
     ],
     "stream": true
   }'

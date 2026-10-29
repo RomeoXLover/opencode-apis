@@ -1,8 +1,37 @@
 # Supported Models Matrix & Hardware Guide
 
-**OpenCode APIs** allows you to run any open-weight code generation and reasoning model. Below is the comprehensive matrix of supported free models, categorized by VPS hardware tier.
+**OpenCode APIs** allows you to run any open-weight code generation and reasoning model, while also supporting closed flagship models (like Claude 3.5 Sonnet and GPT-4o) via its integrated **Hybrid Upstream Router**.
 
 > 💡 **Need deep VPS hosting advice?** Check out [**VPS_SPECS.md**](VPS_SPECS.md) for full RAM formulas, CPU vs GPU benchmarks, and provider pricing from solo dev ($5/mo) to mass enterprise ($900/mo).
+
+---
+
+## ⚡ What About Claude 3.5 Sonnet, GPT-4o & Gemini?
+
+Many developers ask: **"Can I download Claude 3.5 Sonnet or GPT-4o weights onto my VPS?"**
+
+### 1. Closed-Source vs Open-Source Models
+- **Proprietary (Closed) Models**: **Claude 3.5 Sonnet** (Anthropic), **GPT-4o** (OpenAI), and **Gemini 1.5 Pro** (Google) do **NOT** have downloadable weights (`.gguf` or `.safetensors`). Their model weights are guarded proprietary trade secrets hosted in multi-billion dollar datacenters. Nobody can run them directly on raw VPS hardware without an API.
+- **Open-Weight Models**: **Qwen 2.5 Coder**, **DeepSeek Coder**, **CodeLlama**, and **Llama 3.3** are 100% open-weight. You can download their full weights directly to your VPS and run them indefinitely with **zero subscription costs**, total privacy, and offline autonomy.
+
+### 2. How OpenCode APIs Solves This: **Hybrid Upstream Router**
+OpenCode APIs includes a built-in proxy router. If you want a **single unified API endpoint** on your VPS for both free local models and frontier cloud models:
+1. Put your OpenRouter or Anthropic key in `.env`:
+   ```properties
+   UPSTREAM_API_KEY=sk-or-v1-YOUR_KEY
+   ```
+2. Your VPS API now seamlessly routes both:
+   - Request `qwen2.5-coder:7b` ➔ Runs **100% locally** on your VPS for free.
+   - Request `claude-3-5-sonnet` or `gpt-4o` ➔ The gateway securely proxies the request upstream with real-time SSE streaming.
+
+### 3. Open-Source Alternatives that Rival Claude 3.5 Sonnet
+If you want to stay 100% self-hosted without paying cloud API fees, here is how open models compare:
+
+| Proprietary Cloud Model | Open-Source Self-Hosted Equivalent | Local VRAM / RAM Required | How Close Is It? |
+| :--- | :--- | :--- | :--- |
+| **Claude 3.5 Sonnet** | **`qwen2.5-coder:32b`** | 20GB – 24GB VRAM | **Near Parity**: Matches or beats Sonnet on HumanEval (92.7% vs 93.7%) and MultiPL-E. |
+| **GPT-4o** | **`deepseek-coder-v2:16b`** | 10GB – 12GB VRAM | **Excellent**: MoE architecture provides elite reasoning and code infilling. |
+| **GPT-4o-mini** | **`qwen2.5-coder:7b`** | 5GB – 6GB VRAM / RAM | **Equivalent**: Beats GPT-4o-mini on multiple programming benchmarks. |
 
 ---
 
