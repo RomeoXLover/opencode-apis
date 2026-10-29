@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # 1. Inference Engine Backend
+  ollama:
+    image: ollama/ollama:latest
+    container_name: opencode-backend
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=4
+      - OLLAMA_ORIGINS=*
+    # Uncomment for NVIDIA GPU VPS
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # 2. FastAPI Gateway Layer
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: opencode-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - BACKEND_TYPE=ollama
+      - BACKEND_URL=http://ollama:11434
+      - REQUIRE_API_KEY=false
+      - API_KEYS=sk-opencode-key1,sk-opencode-key2
+      - RATE_LIMIT_PER_MINUTE=120/minute
+      - DEFAULT_MODEL=qwen2.5-coder:7b
+    depends_on:
+      - ollama
+
+  # 3. Nginx Reverse Proxy for VPS IP and Domain Routing
+  nginx:
+    image: nginx:alpine
+    container_name: opencode-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/opencode.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - gateway
+
+volumes:
+  ollama_data:
+    name: opencode_ollama_storage

@@ -1,0 +1,18 @@
+# Custom Modelfile for OpenCode APIs
+# Example: Creating a specialized coding assistant from Qwen2.5-Coder
+
+FROM qwen2.5-coder:7b
+
+# Adjust temperature for code generation (0.2 is ideal for exact programming)
+PARAMETER temperature 0.2
+PARAMETER top_p 0.95
+PARAMETER num_ctx 16384
+
+# System prompt baked directly into the model weights
+SYSTEM """
+You are an expert full-stack software engineer and system architect.
+When asked for code:
+1. Provide production-ready, clean, and bug-free code.
+2. Include type definitions, error handling, and comments where appropriate.
+3. Keep prose minimal and code front-and-center.
+"""

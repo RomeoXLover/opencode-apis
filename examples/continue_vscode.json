@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/continuedev/continue/main/packages/config-yaml/src/config.schema.json",
+  "models": [
+    {
+      "title": "OpenCode VPS (Qwen 2.5 Coder 7B)",
+      "provider": "openai",
+      "model": "qwen2.5-coder:7b",
+      "apiBase": "http://YOUR_VPS_IP/v1",
+      "apiKey": "sk-opencode-sample-key"
+    }
+  ],
+  "tabAutocompleteModel": {
+    "title": "OpenCode Autocomplete",
+    "provider": "openai",
+    "model": "qwen2.5-coder:1.5b",
+    "apiBase": "http://YOUR_VPS_IP/v1",
+    "apiKey": "sk-opencode-sample-key"
+  }
+}
