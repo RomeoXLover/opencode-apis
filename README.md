@@ -51,8 +51,24 @@ opencode-apis/
 ├── docker-compose.yml       # Complete stack deployment file
 ├── .env.example             # Template for API keys and server configuration
 ├── MODELS.md                # Full directory of supported models & hardware specs
+├── VPS_SPECS.md             # In-depth VPS specs & hardware scaling guide (Solo to Mass Use)
 └── README.md                # Comprehensive documentation
 ```
+
+---
+
+## 🖥️ Recommended VPS Hardware & Scaling Guide
+
+Choose your VPS configuration based on your intended usage level:
+
+| Level | Intended Usage | Concurrent Requests | Recommended Hardware | Models | Est. Monthly Cost |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Level 1** | **Solo Developer / Hobbyist** | 1 – 2 users | 2–4 vCPU, 8GB RAM, NVMe (No GPU needed) | `qwen2.5-coder:7b` / `1.5b` | **$5 – $12 / mo** (Hetzner, OVH, Contabo) |
+| **Level 2** | **Small Team / Startup** | 3 – 10 users | 4–8 vCPU, 16–32GB RAM (or 8GB GPU) | `qwen2.5-coder:7b`, `deepseek-coder:6.7b` | **$20 – $45 / mo** (Hetzner Dedicated, RunPod) |
+| **Level 3** | **Organization / Agency** | 10 – 50 users | 8–16 vCPU, 32–64GB RAM, 1x 24GB GPU (RTX 4090 / A10G) | `qwen2.5-coder:14b`, `deepseek-coder-v2:16b` | **$60 – $160 / mo** (Lambda Labs, RunPod, AWS g5) |
+| **Level 4** | **Mass Use / Public API** | 50 – 500+ users | 32–64 vCPU, 128GB+ RAM, Multi-GPU (A100/H100/L40S) + vLLM | `qwen2.5-coder:32b`, `qwen2.5-coder:14b` | **$250 – $900+ / mo** (Lambda, CoreWeave, GCP) |
+
+👉 *For full mathematical memory formulas, KV cache sizing, provider benchmarks, and swap optimization, read the full [**VPS_SPECS.md**](VPS_SPECS.md) guide.*
 
 ---
 

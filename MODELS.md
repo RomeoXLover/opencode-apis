@@ -2,6 +2,8 @@
 
 **OpenCode APIs** allows you to run any open-weight code generation and reasoning model. Below is the comprehensive matrix of supported free models, categorized by VPS hardware tier.
 
+> 💡 **Need deep VPS hosting advice?** Check out [**VPS_SPECS.md**](VPS_SPECS.md) for full RAM formulas, CPU vs GPU benchmarks, and provider pricing from solo dev ($5/mo) to mass enterprise ($900/mo).
+
 ---
 
 ## 📊 Quick Hardware Tier Summary
