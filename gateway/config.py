@@ -1,23 +1,37 @@
 import os
+import shutil
 from typing import List, Dict
 from pydantic_settings import BaseSettings
+
+def find_opencode_binary() -> str:
+    candidates = [
+        "/root/.opencode/bin/opencode",
+        os.path.expanduser("~/.opencode/bin/opencode"),
+        shutil.which("opencode") or "opencode"
+    ]
+    for c in candidates:
+        if c and os.path.exists(c) and os.access(c, os.X_OK):
+            return c
+    return "opencode"
 
 class Settings(BaseSettings):
     # Server Host and Port
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
-    # Backend inference engine for self-hosted local models (Ollama, llama.cpp, or vLLM)
-    BACKEND_TYPE: str = os.getenv("BACKEND_TYPE", "ollama")  # "ollama", "llamacpp", "vllm"
-    BACKEND_URL: str = os.getenv("BACKEND_URL", "http://127.0.0.1:11434")
+    # Backend inference engine: OpenCode package (default)
+    BACKEND_TYPE: str = os.getenv("BACKEND_TYPE", "opencode")
+    BACKEND_URL: str = os.getenv("BACKEND_URL", "http://127.0.0.1:4096")
+    OPENCODE_BIN: str = os.getenv("OPENCODE_BIN", find_opencode_binary())
+    OPENCODE_SERVER_PASSWORD: str = os.getenv("OPENCODE_SERVER_PASSWORD", "")
 
-    # Security & API Keys
+    # Security & Client API Keys
     REQUIRE_API_KEY: bool = os.getenv("REQUIRE_API_KEY", "false").lower() in ("true", "1", "yes")
     API_KEYS: List[str] = [
         k.strip() for k in os.getenv("API_KEYS", "").split(",") if k.strip()
     ]
 
-    # Hybrid Upstream Router (For Closed Models like Claude 3.5 Sonnet, GPT-4o, Gemini 1.5 Pro)
+    # Hybrid Upstream Router (For Claude 3.5 Sonnet, GPT-4o, Gemini 1.5 Pro)
     ENABLE_UPSTREAM_ROUTER: bool = os.getenv("ENABLE_UPSTREAM_ROUTER", "true").lower() in ("true", "1", "yes")
     UPSTREAM_API_KEY: str = os.getenv("UPSTREAM_API_KEY", "")
     UPSTREAM_BASE_URL: str = os.getenv("UPSTREAM_BASE_URL", "https://openrouter.ai/api/v1")
@@ -42,8 +56,8 @@ class Settings(BaseSettings):
     # Rate Limiting (per minute per IP)
     RATE_LIMIT_PER_MINUTE: str = os.getenv("RATE_LIMIT_PER_MINUTE", "60/minute")
 
-    # Default fallback model
-    DEFAULT_MODEL: str = os.getenv("DEFAULT_MODEL", "qwen2.5-coder:7b")
+    # Default fallback model for OpenCode
+    DEFAULT_MODEL: str = os.getenv("DEFAULT_MODEL", "opencode/flint-40b-free")
 
     # Allowed CORS Origins
     CORS_ORIGINS: List[str] = ["*"]

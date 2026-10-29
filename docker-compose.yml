@@ -1,27 +1,23 @@
 version: '3.8'
 
 services:
-  # 1. Inference Engine Backend
-  ollama:
-    image: ollama/ollama:latest
-    container_name: opencode-backend
+  # 1. OpenCode Official Package Engine
+  opencode:
+    image: node:20-slim
+    container_name: opencode-server
     restart: unless-stopped
     ports:
-      - "11434:11434"
+      - "4096:4096"
     volumes:
-      - ollama_data:/root/.ollama
+      - ./engines/opencode/opencode.json:/root/.config/opencode/opencode.json:ro
+      - opencode_data:/root/.opencode
     environment:
-      - OLLAMA_KEEP_ALIVE=24h
-      - OLLAMA_NUM_PARALLEL=4
-      - OLLAMA_ORIGINS=*
-    # Uncomment for NVIDIA GPU VPS
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+      - OPENCODE_SERVER_PASSWORD=${OPENCODE_SERVER_PASSWORD:-}
+    command: >
+      bash -c "
+        npm install -g @opencode/cli@latest &&
+        opencode serve --hostname 0.0.0.0 --port 4096
+      "
 
   # 2. FastAPI Gateway Layer
   gateway:
@@ -35,14 +31,16 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8000
-      - BACKEND_TYPE=ollama
-      - BACKEND_URL=http://ollama:11434
+      - BACKEND_TYPE=opencode
+      - BACKEND_URL=http://opencode:4096
       - REQUIRE_API_KEY=false
       - API_KEYS=sk-opencode-key1,sk-opencode-key2
       - RATE_LIMIT_PER_MINUTE=120/minute
-      - DEFAULT_MODEL=qwen2.5-coder:7b
+      - DEFAULT_MODEL=opencode/flint-40b-free
+      - ENABLE_UPSTREAM_ROUTER=true
+      - UPSTREAM_API_KEY=${UPSTREAM_API_KEY:-}
     depends_on:
-      - ollama
+      - opencode
 
   # 3. Nginx Reverse Proxy for VPS IP and Domain Routing
   nginx:
@@ -58,5 +56,5 @@ services:
       - gateway
 
 volumes:
-  ollama_data:
-    name: opencode_ollama_storage
+  opencode_data:
+    name: opencode_server_storage

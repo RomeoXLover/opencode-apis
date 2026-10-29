@@ -47,6 +47,17 @@ If you want to stay 100% self-hosted without paying cloud API fees, here is how 
 
 ## 🏆 Detailed Model Directory
 
+### 0. OpenCode Native Models (Zero-Download Cloud Inference)
+Powered out-of-the-box by the **OpenCode package** without requiring gigabytes of model weights to be downloaded:
+
+#### • `opencode/flint-40b-free` *(Default OpenCode Model)*
+- **Parameters**: 40 Billion
+- **VPS RAM Requirement**: Minimal (< 500 MB RAM needed by OpenCode process)
+- **Features**: Free built-in code completion and reasoning model provided through OpenCode.
+- **Best For**: General programming, refactoring, bash automation, code exploration.
+
+---
+
 ### 1. Qwen 2.5 Coder Series (Alibaba Cloud) — *Top Recommendation*
 The current gold standard in open-source coding models, outperforming many proprietary APIs on HumanEval, MultiPL-E, and SWE-bench.
 

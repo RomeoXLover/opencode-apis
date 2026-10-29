@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "opencode": {
+      "settings": {
+        "apiKey": "public",
+        "baseURL": "https://opencode.ai/inference/openai/v1"
+      }
+    }
+  },
+  "agent": {
+    "build": {
+      "model": "opencode/flint-40b-free"
+    }
+  }
+}

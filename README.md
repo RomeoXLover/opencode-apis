@@ -3,9 +3,9 @@
 [![Gateway CI](https://github.com/RomeoXLover/opencode-apis/actions/workflows/ci.yml/badge.svg)](https://github.com/RomeoXLover/opencode-apis/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![API Standard](https://img.shields.io/badge/API-OpenAI%20Compatible-blue)](https://platform.openai.com/docs/api-reference)
-[![Engines](https://img.shields.io/badge/Engines-Ollama%20%7C%20llama.cpp%20%7C%20vLLM-purple)](#-inference-engines)
+[![Powered By](https://img.shields.io/badge/Engine-OpenCode%20Package%20%28%40opencode%2Fcli%29-brightgreen)](https://opencode.ai)
 
-Turn any Linux VPS (CPU or GPU) into a private, high-performance, **OpenAI-compatible AI coding API**. Host free, open-weight coding models (Qwen 2.5 Coder, DeepSeek Coder, CodeLlama, StarCoder2, Llama 3.2) locally, or use the **Hybrid Upstream Router** to route to proprietary frontier models like **Claude 3.5 Sonnet** and **GPT-4o** through a single unified endpoint using your **VPS IP address** or a **custom domain** with automated SSL.
+Turn any Linux VPS into a private, high-performance **AI Coding API** powered directly by the official **OpenCode** package ([opencode.ai](https://opencode.ai) / `@opencode/cli`). It automatically runs OpenCode in headless server mode, provides built-in free coding models (`opencode/flint-40b-free`, OpenCode Zen), and exposes both OpenAI-compatible (`/v1/chat/completions`) and native OpenCode REST APIs using your **VPS IP address** or a **custom domain** with automated SSL.
 
 ---
 
@@ -14,10 +14,10 @@ Turn any Linux VPS (CPU or GPU) into a private, high-performance, **OpenAI-compa
 ```mermaid
 flowchart LR
     Client["Client / IDE / Script\n(VS Code, Cursor, cURL, Python)"] -->|HTTP / HTTPS| Proxy["Nginx Reverse Proxy\n(Port 80 / 443)\n• SSL (Let's Encrypt)\n• SSE Streaming\n• VPS IP / Domain"]
-    Proxy -->|Local Fast Proxy| Gateway["OpenCode FastAPI Gateway\n(Port 8000)\n• API Key Auth\n• Rate Limiting\n• Smart Model Router"]
-    Gateway -->|Local Open Models| Engine["Backend Inference Engine\n• Ollama (Default)\n• llama.cpp (GGUF)\n• vLLM (CUDA GPU)"]
+    Proxy -->|Local Fast Proxy| Gateway["OpenCode FastAPI Gateway\n(Port 8000)\n• API Key Auth\n• Rate Limiting\n• OpenAI Format Bridge"]
+    Gateway -->|Local Engine| Engine["OpenCode Package Engine\n(Port 4096 / CLI)\n• @opencode/cli\n• Headless API Server\n• Session & Agent System"]
     Gateway -.->|Upstream Cloud Router| Cloud["Proprietary Cloud APIs\n• Claude 3.5 Sonnet\n• GPT-4o / o1-preview\n• Gemini 1.5 Pro"]
-    Engine --> Weights[("Free Local Models\n• Qwen 2.5 Coder\n• DeepSeek Coder\n• Llama 3.2")]
+    Engine --> Weights[("Built-in Free Models\n• opencode/flint-40b-free\n• Qwen 2.5 Coder\n• DeepSeek Coder")]
 ```
 
 ---
@@ -27,13 +27,13 @@ flowchart LR
 ```text
 opencode-apis/
 ├── gateway/                 # 1. FastAPI API gateway & OpenAI compatibility proxy
-│   ├── main.py              # Core FastAPI app (models, streaming SSE, completions)
-│   ├── config.py            # Environment settings and rate limiting
+│   ├── main.py              # Bridges OpenCode package to standard OpenAI endpoints
+│   ├── config.py            # OpenCode binary resolution, rate limiting, and auth
 │   ├── requirements.txt     # Python dependencies (FastAPI, uvicorn, slowapi, httpx)
 │   └── Dockerfile           # Gateway container definition
-├── engines/                 # 2. Inference engine configs and runners
-│   ├── setup-engine.sh      # Wizard to configure Ollama, llama.cpp, or vLLM
-│   ├── ollama/              # Ollama docker & Modelfile templates
+├── engines/                 # 2. OpenCode engine configs and runners
+│   ├── setup-engine.sh      # Wizard to install & start OpenCode package
+│   ├── opencode/            # Official OpenCode configuration (opencode.json, systemd, docker)
 │   ├── llamacpp/            # High-efficiency GGUF runner for low-spec CPU VPS
 │   └── vllm/                # PagedAttention GPU server for Nvidia cloud instances
 ├── nginx/                   # 3. Web server & reverse proxy
@@ -88,9 +88,9 @@ sudo ./scripts/install.sh
 
 The script will automatically:
 1. Detect your public VPS IP address.
-2. Install the backend engine (Ollama) and system packages.
-3. Download the state-of-the-art coding model **`qwen2.5-coder:7b`**.
-4. Configure and launch the **FastAPI Gateway** as a systemd service.
+2. Install the official **OpenCode** package (`@opencode/cli`) and system dependencies.
+3. Configure the default free coding model **`opencode/flint-40b-free`**.
+4. Configure and launch the **OpenCode service** and **FastAPI Gateway** as systemd services.
 5. Set up **Nginx** to expose the endpoints on Port 80 for your VPS IP.
 
 ---
